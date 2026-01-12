@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GitHub Mobile Editor</title>
+    
+    <!-- Libraries -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- CodeMirror & Themes -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/github-dark.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/github-light.min.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/markdown/markdown.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/htmlmixed/htmlmixed.min.js"></script>
+
+    <style>
+        :root {
+            /* Dark Mode Defaults */
+            --bg-base: #0d1117;
+            --bg-canvas: #161b22;
+            --bg-header: #21262d;
+            --border: #30363d;
+            --text-main: #c9d1d9;
+            --text-muted: #8b949e;
+            --accent: #58a6ff;
+            --folder: #7ee787;
+            --btn-bg: #21262d;
+            --modal-overlay: rgba(0,0,0,0.8);
+        }
+
+        /* Light Mode Overrides */
+        [data-theme="light"] {
+            --bg-base: #ffffff;
+            --bg-canvas: #f6f8fa;
+            --bg-header: #f6f8fa;
+            --border: #d0d7de;
+            --text-main: #24292f;
+            --text-muted: #57606a;
+            --accent: #0969da;
+            --folder: #54aeff;
+            --btn-bg: #ffffff;
+            --modal-overlay: rgba(255,255,255,0.6);
+        }
+
+        * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
+        body { margin: 0; background: var(--bg-base); color: var(--text-main); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; transition: background 0.3s, color 0.3s; }
+
+        /* Utils */
+        .hidden { display: none !important; }
+        .flex { display: flex; }
+        .center { display:flex; align-items: center; justify-content: center; }
+        .btn { background: var(--btn-bg); border: 1px solid var(--border); color: var(--text-main); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: 0.2s; }
+        .btn:hover { border-color: var(--text-muted); }
+        .btn-primary { background: #238636; border-color: rgba(240,246,252,0.1); color: white; }
+        .input { background: var(--bg-base); border: 1px solid var(--border); color: var(--text-main); padding: 8px; border-radius: 6px; width: 100%; }
+
+        /* Header */
+        header { height: 50px; background: var(--bg-header); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 10px; gap: 10px; justify-content: space-between; }
+        
+        /* Layout */
+        #workspace { flex: 1; display: flex; overflow: hidden; position: relative; }
+        
+        /* Sidebar (Explorer) */
+        #sidebar { width: 85%; max-width: 280px; background: var(--bg-canvas); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: absolute; height: 100%; z-index: 100; transform: translateX(-100%); transition: transform 0.3s; }
+        #sidebar.open { transform: translateX(0); }
+        @media(min-width: 768px) { #sidebar { position: relative; transform: none; width: 250px; } }
+
+        .explorer-header { padding: 10px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 12px; }
+        
+        /* Breadcrumbs */
+        #breadcrumbs { padding: 8px 10px; font-size: 12px; background: var(--bg-base); border-bottom: 1px solid var(--border); white-space: nowrap; overflow-x: auto; display: flex; gap: 5px; color: var(--text-muted); }
+        .crumb { cursor: pointer; color: var(--accent); }
+        .crumb:hover { text-decoration: underline; }
+        .crumb:last-child { color: var(--text-main); cursor: default; pointer-events: none; }
+
+        /* File List */
+        #file-tree { flex: 1; overflow-y: auto; }
+        .tree-item { padding: 10px; display: flex; align-items: center; gap: 10px; cursor: pointer; border-bottom: 1px solid var(--border); font-size: 14px; }
+        .tree-item:hover { background: var(--bg-header); }
+        .tree-item i.fa-folder { color: var(--folder); }
+        .tree-item i.fa-file { color: var(--text-muted); }
+
+        /* Editor */
+        #editor-area { flex: 1; display: flex; flex-direction: column; background: var(--bg-base); position: relative; width: 100%; }
+        .CodeMirror { flex: 1; font-size: 14px; font-family: 'SF Mono', 'Cascadia Code', monospace; }
+        
+        /* Zoom & Theme Buttons */
+        #floating-controls { position: absolute; bottom: 80px; right: 20px; z-index: 50; display: flex; flex-direction: column; gap: 8px; }
+        .float-btn { width: 40px; height: 40px; border-radius: 50%; background: var(--bg-header); border: 1px solid var(--border); color: var(--accent); font-size: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+
+        /* Bottom Nav */
+        #bottom-nav { height: 60px; background: var(--bg-canvas); border-top: 1px solid var(--border); display: flex; justify-content: space-around; align-items: center; z-index: 200; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-muted); font-size: 10px; cursor: pointer; padding: 5px; flex: 1; }
+        .nav-item.active { color: var(--accent); }
+        .nav-item i { font-size: 18px; }
+
+        /* Modals */
+        .modal-overlay { position: fixed; inset: 0; background: var(--modal-overlay); z-index: 1000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: 0.2s; backdrop-filter: blur(2px); }
+        .modal-overlay.open { opacity: 1; pointer-events: all; }
+        .modal { background: var(--bg-canvas); width: 90%; max-width: 400px; padding: 20px; border-radius: 12px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .modal h3 { margin: 0; }
+
+        /* Empty State */
+        #empty-state { position: absolute; inset: 0; background: var(--bg-base); z-index: 10; flex-direction: column; color: var(--text-muted); }
+    </style>
+</head>
+<body>
+
+    <!-- LOGIN -->
+    <div id="login-view" class="center" style="position: fixed; inset: 0; background: var(--bg-base); z-index: 2000; flex-direction: column;">
+        <i class="fab fa-github" style="font-size: 64px; margin-bottom: 20px; color: var(--text-main);"></i>
+        <h3>GitHub Mobile Editor</h3>
+        <input type="password" id="pat-input" class="input" placeholder="Personal Access Token (Repo Scope)" style="max-width: 300px; margin-bottom: 10px;">
+        <button id="login-btn" class="btn btn-primary" style="width: 300px;">Login</button>
+        <p style="font-size: 11px; color: var(--text-muted); margin-top: 20px;">Token is stored in localStorage.</p>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="app-view" class="hidden" style="height: 100%; display: flex; flex-direction: column;">
+        
+        <header>
+            <button class="btn" id="menu-toggle"><i class="fas fa-bars"></i></button>
+            <div id="repo-display" style="font-weight: bold; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 50%;">Select Repo</div>
+            <div style="flex:1"></div>
+            <div id="branch-badge" style="background: var(--bg-base); border: 1px solid var(--border); color: var(--text-muted); padding: 2px 8px; border-radius: 10px; font-size: 10px; margin-right: 5px;">main</div>
+            <button class="btn" id="theme-toggle"><i class="fas fa-sun"></i></button>
+        </header>
+
+        <div id="workspace">
+            <!-- Sidebar -->
+            <aside id="sidebar">
+                <div class="explorer-header">
+                    <span>EXPLORER</span>
+                    <div>
+                        <button class="btn" id="new-file-trigger" title="New File" style="padding:4px 8px;"><i class="fas fa-plus"></i></button>
+                        <label class="btn" title="Upload File" style="cursor: pointer; padding:4px 8px;">
+                            <i class="fas fa-upload"></i>
+                            <input type="file" id="file-upload-input" multiple hidden>
+                        </label>
+                    </div>
+                </div>
+                <!-- Path Navigation -->
+                <div id="breadcrumbs">
+                    <span class="crumb" onclick="app.navigateTo('')">root</span>
+                </div>
+                <div id="file-tree"></div>
+            </aside>
+
+            <!-- Editor -->
+            <main id="editor-area">
+                <textarea id="code-editor"></textarea>
+                
+                <div id="floating-controls">
+                    <button class="float-btn" onclick="app.zoom(2)"><i class="fas fa-plus"></i></button>
+                    <button class="float-btn" onclick="app.zoom(-2)"><i class="fas fa-minus"></i></button>
+                </div>
+
+                <div id="empty-state" class="center">
+                    <i class="fas fa-code-branch" style="font-size: 48px; opacity: 0.2; margin-bottom: 10px;"></i>
+                    <p>Select a file to edit</p>
+                </div>
+            </main>
+        </div>
+
+        <nav id="bottom-nav">
+            <div class="nav-item active" onclick="ui.switchView('edit')"><i class="fas fa-pen"></i><span>Edit</span></div>
+            <div class="nav-item" onclick="app.commitModal()"><i class="fas fa-save"></i><span>Commit</span></div>
+            <div class="nav-item" onclick="app.loadRepos()"><i class="fas fa-book"></i><span>Repos</span></div>
+            <div class="nav-item" onclick="app.logout()"><i class="fas fa-sign-out-alt"></i><span>Logout</span></div>
+        </nav>
+    </div>
+
+    <!-- REPO MODAL -->
+    <div id="repo-modal" class="modal-overlay">
+        <div class="modal">
+            <h3>Repositories</h3>
+            <div id="repo-list" style="max-height: 300px; overflow-y: auto;">Loading...</div>
+            <button class="btn" onclick="ui.closeModal('repo-modal')">Close</button>
+        </div>
+    </div>
+
+    <!-- NEW FILE MODAL -->
+    <div id="new-file-modal" class="modal-overlay">
+        <div class="modal">
+            <h3>Create New File</h3>
+            <p style="font-size: 12px; color: var(--text-muted)">Location: <span id="target-folder">root/</span></p>
+            <input type="text" id="new-filename" class="input" placeholder="filename.js">
+            <button class="btn btn-primary" onclick="app.createNewFile()">Create</button>
+            <button class="btn" onclick="ui.closeModal('new-file-modal')">Cancel</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Theme Manager ---
+        const theme = {
+            current: 'dark',
+            init() {
+                const saved = localStorage.getItem('theme') || 'dark';
+                this.set(saved);
+                document.getElementById('theme-toggle').onclick = () => this.toggle();
+            },
+            toggle() {
+                this.set(this.current === 'dark' ? 'light' : 'dark');
+            },
+            set(mode) {
+                this.current = mode;
+                document.documentElement.setAttribute('data-theme', mode);
+                localStorage.setItem('theme', mode);
+                
+                // Update CodeMirror Theme
+                if(app.editor) {
+                    app.editor.setOption('theme', mode === 'dark' ? 'github-dark' : 'github-light');
+                }
+                
+                // Update Icon
+                const icon = document.querySelector('#theme-toggle i');
+                if(icon) {
+                    icon.className = mode === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+                }
+            }
+        };
+
+        const github = {
+            token: null,
+            baseUrl: 'https://api.github.com',
+            
+            async req(endpoint, method = 'GET', body = null) {
+                const opts = { method, headers: { 'Authorization': `Bearer ${this.token}`, 'Accept': 'application/vnd.github.v3+json' } };
+                if (body) opts.body = JSON.stringify(body);
+                const res = await fetch(endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint}`, opts);
+                if (!res.ok) throw new Error(res.statusText);
+                return res.json();
+            },
+            
+            async getBlob(url) {
+                const data = await this.req(url);
+                return decodeURIComponent(escape(window.atob(data.content.replace(/\s/g, ''))));
+            }
+        };
+
+        const app = {
+            repo: null,
+            branch: 'main',
+            allItems: [],
+            currentPath: '', 
+            openFile: null, 
+            fontSize: 14,
+            editor: null,
+
+            async init() {
+                theme.init(); // Initialize theme
+                
+                const t = localStorage.getItem('gh_token');
+                if (t) {
+                    github.token = t;
+                    try {
+                        await github.req('/user');
+                        document.getElementById('login-view').classList.add('hidden');
+                        document.getElementById('app-view').classList.remove('hidden');
+                        this.setupEditor();
+                        this.loadRepos();
+                    } catch (e) { document.getElementById('login-view').classList.remove('hidden'); }
+                }
+                
+                document.getElementById('login-btn').onclick = async () => {
+                    const val = document.getElementById('pat-input').value;
+                    if(val) { localStorage.setItem('gh_token', val); location.reload(); }
+                };
+                document.getElementById('menu-toggle').onclick = () => document.getElementById('sidebar').classList.toggle('open');
+                
+                document.getElementById('file-upload-input').addEventListener('change', (e) => this.handleUpload(e.target.files));
+                document.getElementById('new-file-trigger').onclick = () => {
+                    document.getElementById('target-folder').innerText = this.currentPath || "root/";
+                    ui.openModal('new-file-modal');
+                };
+            },
+
+            setupEditor() {
+                this.editor = CodeMirror.fromTextArea(document.getElementById('code-editor'), {
+                    lineNumbers: true, 
+                    mode: 'javascript', 
+                    theme: theme.current === 'dark' ? 'github-dark' : 'github-light', 
+                    lineWrapping: true
+                });
+                this.editor.on('change', () => {
+                    if (this.openFile && this.editor.getValue() !== this.openFile.original) {
+                        this.openFile.content = this.editor.getValue();
+                        this.openFile.isDirty = true;
+                    }
+                });
+            },
+
+            async loadRepos() {
+                ui.openModal('repo-modal');
+                const repos = await github.req('/user/repos?sort=updated&per_page=50');
+                document.getElementById('repo-list').innerHTML = repos.map(r => 
+                    `<div class="tree-item" onclick="app.selectRepo('${r.full_name}', '${r.default_branch}')">
+                        <i class="fas ${r.private ? 'fa-lock' : 'fa-book'}"></i> ${r.name}
+                    </div>`
+                ).join('');
+            },
+
+            async selectRepo(fullName, branch) {
+                this.repo = fullName;
+                this.branch = branch;
+                document.getElementById('repo-display').innerText = fullName;
+                document.getElementById('branch-badge').innerText = branch;
+                ui.closeModal('repo-modal');
+                
+                document.getElementById('file-tree').innerHTML = '<div style="padding:10px">Loading Tree...</div>';
+                const data = await github.req(`/repos/${fullName}/git/trees/${branch}?recursive=1`);
+                this.allItems = data.tree;
+                this.navigateTo('');
+            },
+
+            navigateTo(path) {
+                this.currentPath = path;
+                
+                // Breadcrumbs
+                const parts = path.split('/').filter(Boolean);
+                let crumbHtml = `<span class="crumb" onclick="app.navigateTo('')">root</span>`;
+                let buildPath = '';
+                parts.forEach((p, i) => {
+                    buildPath += p + '/';
+                    if (i === parts.length - 1) crumbHtml += ` / <span>${p}</span>`;
+                    else crumbHtml += ` / <span class="crumb" onclick="app.navigateTo('${buildPath}')">${p}</span>`;
+                });
+                document.getElementById('breadcrumbs').innerHTML = crumbHtml;
+
+                // Filtering
+                const folderSet = new Set();
+                const fileList = [];
+
+                this.allItems.forEach(item => {
+                    if (!item.path.startsWith(this.currentPath)) return;
+                    const relative = item.path.substring(this.currentPath.length);
+                    if (!relative) return;
+
+                    const segments = relative.split('/');
+                    if (segments.length === 1) {
+                        if (item.type === 'blob') fileList.push(item);
+                    } else {
+                        folderSet.add(segments[0]);
+                    }
+                });
+
+                let html = '';
+                if(this.currentPath !== '') {
+                    const parts = this.currentPath.split('/').filter(p => p);
+                    parts.pop();
+                    const parentPath = parts.length > 0 ? parts.join('/') + '/' : '';
+                    html += `<div class="tree-item" onclick="app.navigateTo('${parentPath}')" style="color:var(--accent)">
+                        <i class="fas fa-level-up-alt"></i> ..
+                    </div>`;
+                }
+
+                Array.from(folderSet).sort().forEach(folder => {
+                    html += `<div class="tree-item" onclick="app.navigateTo('${this.currentPath}${folder}/')">
+                        <i class="fas fa-folder"></i> ${folder}
+                    </div>`;
+                });
+
+                fileList.sort((a,b) => a.path.localeCompare(b.path)).forEach(file => {
+                    const name = file.path.split('/').pop();
+                    html += `<div class="tree-item" onclick="app.loadFile('${file.path}', '${file.sha}')">
+                        <i class="fas fa-file"></i> ${name}
+                    </div>`;
+                });
+
+                document.getElementById('file-tree').innerHTML = html;
+            },
+
+            async loadFile(path, sha) {
+                document.getElementById('empty-state').classList.add('hidden');
+                
+                const item = this.allItems.find(i => i.path === path);
+                let content = "";
+                
+                if (sha) {
+                    if (this.openFile && this.openFile.path === path && this.openFile.isDirty) {
+                        content = this.openFile.content;
+                    } else {
+                        content = await github.getBlob(item.url);
+                    }
+                }
+
+                this.openFile = { path, sha, content, original: content, isDirty: false };
+                
+                const ext = path.split('.').pop();
+                let mode = 'javascript';
+                if (ext === 'html') mode = 'htmlmixed';
+                if (ext === 'css') mode = 'css';
+                if (ext === 'md') mode = 'markdown';
+                if (ext === 'json') mode = 'application/json';
+                
+                this.editor.setValue(content);
+                this.editor.setOption('mode', mode);
+                this.editor.clearHistory();
+                
+                if (window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open');
+            },
+            
+            createNewFile() {
+                const name = document.getElementById('new-filename').value;
+                if (!name) return;
+                const fullPath = this.currentPath + name;
+                
+                const existing = this.allItems.find(i => i.path === fullPath);
+                if (existing) {
+                    if(!confirm("File exists. Open it?")) return;
+                    this.loadFile(fullPath, existing.sha);
+                } else {
+                    this.openFile = { path: fullPath, sha: null, content: '', original: '', isDirty: true };
+                    this.editor.setValue("");
+                    document.getElementById('empty-state').classList.add('hidden');
+                }
+                ui.closeModal('new-file-modal');
+            },
+
+            handleUpload(files) {
+                if (files.length === 0) return;
+                const file = files[0];
+                const fullPath = this.currentPath + file.name;
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const content = e.target.result;
+                    const existing = this.allItems.find(i => i.path === fullPath);
+                    const sha = existing ? existing.sha : null;
+                    
+                    this.openFile = { path: fullPath, sha: sha, content: content, original: sha ? 'FETCH_NEEDED' : '', isDirty: true };
+                    this.editor.setValue(content);
+                    document.getElementById('empty-state').classList.add('hidden');
+                    alert(`Loaded ${file.name}. Commit to save.`);
+                };
+                reader.readAsText(file);
+            },
+
+            async commit() {
+                if (!this.openFile || !this.openFile.isDirty) return alert("No changes.");
+                const msg = prompt("Commit message:", `Update ${this.openFile.path}`);
+                if (!msg) return;
+
+                const { path, content } = this.openFile;
+                const owner = this.repo.split('/')[0];
+                const name = this.repo.split('/')[1];
+
+                try {
+                    const ref = await github.req(`/repos/${owner}/${name}/git/refs/heads/${this.branch}`);
+                    const latestCommitSha = ref.object.sha;
+                    const blob = await github.req(`/repos/${owner}/${name}/git/blobs`, 'POST', { content, encoding: 'utf-8' });
+                    const tree = await github.req(`/repos/${owner}/${name}/git/trees`, 'POST', {
+                        base_tree: latestCommitSha,
+                        tree: [{ path, mode: '100644', type: 'blob', sha: blob.sha }]
+                    });
+                    const newCommit = await github.req(`/repos/${owner}/${name}/git/commits`, 'POST', {
+                        message: msg, tree: tree.sha, parents: [latestCommitSha]
+                    });
+                    await github.req(`/repos/${owner}/${name}/git/refs/heads/${this.branch}`, 'PATCH', { sha: newCommit.sha });
+
+                    alert("Saved!");
+                    this.openFile.isDirty = false;
+                    this.openFile.original = content;
+                    this.selectRepo(this.repo, this.branch);
+                } catch (e) { alert("Commit failed: " + e.message); }
+            },
+            
+            commitModal() { this.commit(); },
+            zoom(delta) {
+                this.fontSize += delta;
+                document.querySelector('.CodeMirror').style.fontSize = `${this.fontSize}px`;
+                this.editor.refresh();
+            },
+            logout() { localStorage.clear(); location.reload(); }
+        };
+
+        const ui = {
+            openModal(id) { document.getElementById(id).classList.add('open'); },
+            closeModal(id) { document.getElementById(id).classList.remove('open'); },
+            switchView(view) { if(window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open'); }
+        };
+
+        app.init();
+    </script>
+</body>
+</html>
