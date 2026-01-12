@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>GitHub Mobile Editor</title>
     
-    <!-- Icons -->
+    <!-- Libraries -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- CodeMirror & Themes -->
@@ -56,13 +56,10 @@
         .hidden { display: none !important; }
         .flex { display: flex; }
         .center { display:flex; align-items: center; justify-content: center; }
-        .btn { background: var(--btn-bg); border: 1px solid var(--border); color: var(--text-main); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: 0.2s; font-weight: 500; }
+        .btn { background: var(--btn-bg); border: 1px solid var(--border); color: var(--text-main); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: 0.2s; }
         .btn:hover { border-color: var(--text-muted); }
         .btn-primary { background: #238636; border-color: rgba(240,246,252,0.1); color: white; }
-        .input { background: var(--bg-base); border: 1px solid var(--border); color: var(--text-main); padding: 10px; border-radius: 6px; width: 100%; font-size: 14px; }
-        
-        /* Error Message Box */
-        .error-msg { color: #f85149; font-size: 12px; margin-top: 10px; text-align: center; background: rgba(248, 81, 73, 0.1); padding: 8px; border-radius: 6px; width: 100%; border: 1px solid rgba(248, 81, 73, 0.4); }
+        .input { background: var(--bg-base); border: 1px solid var(--border); color: var(--text-main); padding: 8px; border-radius: 6px; width: 100%; }
 
         /* Header */
         header { height: 50px; background: var(--bg-header); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 10px; gap: 10px; justify-content: space-between; }
@@ -71,9 +68,9 @@
         #workspace { flex: 1; display: flex; overflow: hidden; position: relative; }
         
         /* Sidebar (Explorer) */
-        #sidebar { width: 85%; max-width: 280px; background: var(--bg-canvas); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: absolute; height: 100%; z-index: 100; transform: translateX(-100%); transition: transform 0.3s; box-shadow: 2px 0 10px rgba(0,0,0,0.5); }
+        #sidebar { width: 85%; max-width: 280px; background: var(--bg-canvas); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: absolute; height: 100%; z-index: 100; transform: translateX(-100%); transition: transform 0.3s; }
         #sidebar.open { transform: translateX(0); }
-        @media(min-width: 768px) { #sidebar { position: relative; transform: none; width: 250px; box-shadow: none; } }
+        @media(min-width: 768px) { #sidebar { position: relative; transform: none; width: 250px; } }
 
         .explorer-header { padding: 10px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 12px; }
         
@@ -94,12 +91,12 @@
         #editor-area { flex: 1; display: flex; flex-direction: column; background: var(--bg-base); position: relative; width: 100%; }
         .CodeMirror { flex: 1; font-size: 14px; font-family: 'SF Mono', 'Cascadia Code', monospace; }
         
-        /* Controls */
+        /* Zoom & Theme Buttons */
         #floating-controls { position: absolute; bottom: 80px; right: 20px; z-index: 50; display: flex; flex-direction: column; gap: 8px; }
-        .float-btn { width: 40px; height: 40px; border-radius: 50%; background: var(--bg-header); border: 1px solid var(--border); color: var(--accent); font-size: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; }
+        .float-btn { width: 40px; height: 40px; border-radius: 50%; background: var(--bg-header); border: 1px solid var(--border); color: var(--accent); font-size: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
 
         /* Bottom Nav */
-        #bottom-nav { height: 60px; background: var(--bg-canvas); border-top: 1px solid var(--border); display: flex; justify-content: space-around; align-items: center; z-index: 200; padding-bottom: env(safe-area-inset-bottom); }
+        #bottom-nav { height: 60px; background: var(--bg-canvas); border-top: 1px solid var(--border); display: flex; justify-content: space-around; align-items: center; z-index: 200; }
         .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-muted); font-size: 10px; cursor: pointer; padding: 5px; flex: 1; }
         .nav-item.active { color: var(--accent); }
         .nav-item i { font-size: 18px; }
@@ -116,16 +113,13 @@
 </head>
 <body>
 
-    <!-- LOGIN SCREEN -->
-    <div id="login-view" class="center" style="position: fixed; inset: 0; background: var(--bg-base); z-index: 2000; flex-direction: column; padding: 20px; text-align: center;">
+    <!-- LOGIN -->
+    <div id="login-view" class="center" style="position: fixed; inset: 0; background: var(--bg-base); z-index: 2000; flex-direction: column;">
         <i class="fab fa-github" style="font-size: 64px; margin-bottom: 20px; color: var(--text-main);"></i>
         <h3>GitHub Mobile Editor</h3>
-        <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 15px;">
-            Create a "Classic" Token with <b>repo</b> scope.
-        </p>
-        <input type="password" id="pat-input" class="input" placeholder="ghp_xxxxxxxxxxxxxxxxx" style="max-width: 320px; margin-bottom: 10px;">
-        <button id="login-btn" class="btn btn-primary" style="width: 100%; max-width: 320px;">Login</button>
-        <div id="login-error" class="hidden error-msg"></div>
+        <input type="password" id="pat-input" class="input" placeholder="Personal Access Token (Repo Scope)" style="max-width: 300px; margin-bottom: 10px;">
+        <button id="login-btn" class="btn btn-primary" style="width: 300px;">Login</button>
+        <p style="font-size: 11px; color: var(--text-muted); margin-top: 20px;">Token is stored in localStorage.</p>
     </div>
 
     <!-- MAIN APP -->
@@ -219,11 +213,17 @@
                 this.current = mode;
                 document.documentElement.setAttribute('data-theme', mode);
                 localStorage.setItem('theme', mode);
+                
+                // Update CodeMirror Theme
                 if(app.editor) {
                     app.editor.setOption('theme', mode === 'dark' ? 'github-dark' : 'github-light');
                 }
+                
+                // Update Icon
                 const icon = document.querySelector('#theme-toggle i');
-                if(icon) icon.className = mode === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+                if(icon) {
+                    icon.className = mode === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+                }
             }
         };
 
@@ -232,35 +232,16 @@
             baseUrl: 'https://api.github.com',
             
             async req(endpoint, method = 'GET', body = null) {
-                if(!this.token) throw new Error("No token provided");
-                
-                const opts = { 
-                    method, 
-                    headers: { 
-                        'Authorization': `Bearer ${this.token}`, 
-                        'Accept': 'application/vnd.github.v3+json' 
-                    } 
-                };
+                const opts = { method, headers: { 'Authorization': `Bearer ${this.token}`, 'Accept': 'application/vnd.github.v3+json' } };
                 if (body) opts.body = JSON.stringify(body);
-                
                 const res = await fetch(endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint}`, opts);
-                
-                if(res.status === 401) throw new Error("Invalid Token. Access Denied.");
-                if(res.status === 404) throw new Error("Resource not found (Check Repo permission).");
-                if(!res.ok) throw new Error(`API Error: ${res.status}`);
-                
+                if (!res.ok) throw new Error(res.statusText);
                 return res.json();
             },
             
             async getBlob(url) {
                 const data = await this.req(url);
-                // Better Base64 decoding using TextDecoder for UTF-8 support
-                const binaryString = window.atob(data.content.replace(/\s/g, ''));
-                const bytes = new Uint8Array(binaryString.length);
-                for (let i = 0; i < binaryString.length; i++) {
-                    bytes[i] = binaryString.charCodeAt(i);
-                }
-                return new TextDecoder().decode(bytes);
+                return decodeURIComponent(escape(window.atob(data.content.replace(/\s/g, ''))));
             }
         };
 
@@ -274,32 +255,26 @@
             editor: null,
 
             async init() {
-                theme.init();
+                theme.init(); // Initialize theme
                 
-                // --- LOGIN CHECK ---
                 const t = localStorage.getItem('gh_token');
                 if (t) {
                     github.token = t;
                     try {
-                        // Silent verify
                         await github.req('/user');
-                        this.showApp();
+                        document.getElementById('login-view').classList.add('hidden');
+                        document.getElementById('app-view').classList.remove('hidden');
                         this.setupEditor();
                         this.loadRepos();
-                    } catch (e) { 
-                        console.error("Auto-login failed:", e);
-                        localStorage.removeItem('gh_token'); // Clear bad token
-                        this.showLogin();
-                    }
-                } else {
-                    this.showLogin();
+                    } catch (e) { document.getElementById('login-view').classList.remove('hidden'); }
                 }
                 
-                // Login Button Logic
-                document.getElementById('login-btn').onclick = () => this.handleLogin();
-                
-                // UI Events
+                document.getElementById('login-btn').onclick = async () => {
+                    const val = document.getElementById('pat-input').value;
+                    if(val) { localStorage.setItem('gh_token', val); location.reload(); }
+                };
                 document.getElementById('menu-toggle').onclick = () => document.getElementById('sidebar').classList.toggle('open');
+                
                 document.getElementById('file-upload-input').addEventListener('change', (e) => this.handleUpload(e.target.files));
                 document.getElementById('new-file-trigger').onclick = () => {
                     document.getElementById('target-folder').innerText = this.currentPath || "root/";
@@ -307,60 +282,7 @@
                 };
             },
 
-            showLogin() {
-                document.getElementById('login-view').classList.remove('hidden');
-                document.getElementById('app-view').classList.add('hidden');
-            },
-
-            showApp() {
-                document.getElementById('login-view').classList.add('hidden');
-                document.getElementById('app-view').classList.remove('hidden');
-            },
-
-            async handleLogin() {
-                const input = document.getElementById('pat-input');
-                const errBox = document.getElementById('login-error');
-                const btn = document.getElementById('login-btn');
-                
-                const token = input.value.trim();
-                
-                if(!token) {
-                    errBox.innerText = "Please enter a token.";
-                    errBox.classList.remove('hidden');
-                    return;
-                }
-
-                // UI Loading
-                btn.innerText = "Verifying...";
-                btn.disabled = true;
-                errBox.classList.add('hidden');
-
-                try {
-                    github.token = token;
-                    // Verify by fetching user
-                    const user = await github.req('/user');
-                    
-                    // Success
-                    localStorage.setItem('gh_token', token);
-                    this.showApp();
-                    this.setupEditor();
-                    this.loadRepos();
-                    
-                    // Optional: Welcome message
-                    // alert(`Welcome ${user.login}!`);
-
-                } catch (e) {
-                    errBox.innerText = e.message;
-                    errBox.classList.remove('hidden');
-                    github.token = null;
-                } finally {
-                    btn.innerText = "Login";
-                    btn.disabled = false;
-                }
-            },
-
             setupEditor() {
-                if(this.editor) return; // Already setup
                 this.editor = CodeMirror.fromTextArea(document.getElementById('code-editor'), {
                     lineNumbers: true, 
                     mode: 'javascript', 
@@ -377,23 +299,12 @@
 
             async loadRepos() {
                 ui.openModal('repo-modal');
-                const list = document.getElementById('repo-list');
-                list.innerHTML = '<div style="text-align:center; padding:20px;">Loading repositories...</div>';
-                
-                try {
-                    const repos = await github.req('/user/repos?sort=updated&per_page=50');
-                    list.innerHTML = repos.map(r => 
-                        `<div class="tree-item" onclick="app.selectRepo('${r.full_name}', '${r.default_branch}')">
-                            <i class="fas ${r.private ? 'fa-lock' : 'fa-book'}"></i> 
-                            <div class="flex flex-col">
-                                <span>${r.name}</span>
-                                <span style="font-size:10px; color:var(--text-muted)">${r.owner.login}</span>
-                            </div>
-                        </div>`
-                    ).join('');
-                } catch(e) {
-                    list.innerHTML = `<div class="error-msg">${e.message}</div>`;
-                }
+                const repos = await github.req('/user/repos?sort=updated&per_page=50');
+                document.getElementById('repo-list').innerHTML = repos.map(r => 
+                    `<div class="tree-item" onclick="app.selectRepo('${r.full_name}', '${r.default_branch}')">
+                        <i class="fas ${r.private ? 'fa-lock' : 'fa-book'}"></i> ${r.name}
+                    </div>`
+                ).join('');
             },
 
             async selectRepo(fullName, branch) {
@@ -404,13 +315,9 @@
                 ui.closeModal('repo-modal');
                 
                 document.getElementById('file-tree').innerHTML = '<div style="padding:10px">Loading Tree...</div>';
-                try {
-                    const data = await github.req(`/repos/${fullName}/git/trees/${branch}?recursive=1`);
-                    this.allItems = data.tree;
-                    this.navigateTo('');
-                } catch(e) {
-                    document.getElementById('file-tree').innerHTML = `<div class="error-msg" style="margin:10px">${e.message}</div>`;
-                }
+                const data = await github.req(`/repos/${fullName}/git/trees/${branch}?recursive=1`);
+                this.allItems = data.tree;
+                this.navigateTo('');
             },
 
             navigateTo(path) {
@@ -480,12 +387,7 @@
                     if (this.openFile && this.openFile.path === path && this.openFile.isDirty) {
                         content = this.openFile.content;
                     } else {
-                        try {
-                            content = await github.getBlob(item.url);
-                        } catch(e) {
-                            alert("Error loading file: " + e.message);
-                            return;
-                        }
+                        content = await github.getBlob(item.url);
                     }
                 }
 
@@ -576,7 +478,7 @@
                 document.querySelector('.CodeMirror').style.fontSize = `${this.fontSize}px`;
                 this.editor.refresh();
             },
-            logout() { localStorage.removeItem('gh_token'); location.reload(); }
+            logout() { localStorage.clear(); location.reload(); }
         };
 
         const ui = {
